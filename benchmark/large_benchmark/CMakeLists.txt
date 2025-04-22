@@ -1,0 +1,30 @@
+set(BENCH_ARGS -c -emit-llvm -g -Xclang -disable-O0-optnone)
+
+function(generate_ir name output)
+  file(GLOB BENCH_SOURCE_LIST ${CMAKE_CURRENT_SOURCE_DIR}/${name}/*.c ${CMAKE_CURRENT_SOURCE_DIR}/${name}/*.cpp)
+  foreach(BENCH_SOURCE IN LISTS BENCH_SOURCE_LIST)
+    get_filename_component(SOURCE_EXT ${BENCH_SOURCE} EXT)
+    if (SOURCE_EXT STREQUAL ".c")
+      set(COMPILER ${CLANG_TOOL})
+    else()
+      set(COMPILER ${CLANGXX_TOOL})
+    endif()
+    get_filename_component(SOURCE_WE ${BENCH_SOURCE} NAME_WE)
+    set(BC_FILE "${name}-${SOURCE_WE}.bc")
+    add_custom_command(OUTPUT ${BC_FILE} COMMAND ${COMPILER} ${BENCH_ARGS}
+                       "-I${CMAKE_CURRENT_SOURCE_DIR}/${name}" ${BENCH_SOURCE}
+                       -o ${BC_FILE} DEPENDS ${BENCH_SOURCE})
+    list(APPEND BC_LIST ${BC_FILE})
+  endforeach()
+  add_custom_command(OUTPUT ${output} COMMAND ${LLVMLINK_TOOL} ${BC_LIST} -o ${output} DEPENDS ${BC_LIST})
+endfunction() 
+
+set(LARGE_BENCHMARKS "bfs;jacobi-1d;is;dither")
+
+foreach(BENCH IN LISTS LARGE_BENCHMARKS)
+  set(OUTPUT "${BENCH}-link.bc")
+  list(APPEND BENCH_LIST ${OUTPUT})
+  generate_ir(${BENCH} ${OUTPUT})
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT} DESTINATION benchmark/large_benchmark RENAME ${BENCH}.bc)
+endforeach()
+add_custom_target(GEN_LARGE_BENCH ALL DEPENDS ${BENCH_LIST} COMMENT "Build large benchmarks")

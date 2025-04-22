@@ -1,0 +1,1 @@
+install(PROGRAMS run_pass.sh DESTINATION .)
